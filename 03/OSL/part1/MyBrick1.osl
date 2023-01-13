@@ -1,0 +1,48 @@
+//
+// brick shader (OSL) for lab 3 part 1 from CSCI 719
+// 
+// Contributor: Michael Lee (ml3406)
+//
+
+#define BRICKWIDTH        0.25
+#define BRICKHEIGHT       0.08
+#define MORTARTHICKNESS   0.01
+
+#define BLOCKHEIGHT   (BRICKHEIGHT + MORTARTHICKNESS)
+#define BLOCKWIDTH    (BRICKWIDTH + MORTARTHICKNESS)
+
+shader MyBrick1 (
+    vector coords = vector(0.5),
+    color Cbrick = color(0.6, 0.15, 0.1),
+    color Cmortar = color(0.75, 0.75, 0.75),
+    output color Result = color(0.6, 0.15, 0.1) )
+{
+    // x gives us s, y gives us t
+    float s = coords[0];
+    float t = coords[1];
+    
+    // If row is even, offset length by a half (ml3406)
+    if( mod(ceil(t / BLOCKHEIGHT), 2) == 0 )
+        s += (BLOCKWIDTH/2);
+    
+    // wrap texture coords to see where we are in the block
+    float sb = fmod(s, BLOCKWIDTH);
+    float tb = fmod(t, BLOCKHEIGHT);
+        
+    // determine where we are on the brick
+    float sbrick = floor( sb );
+    float tbrick = floor( tb );
+    sb -= sbrick;
+    tb -= tbrick;
+
+    // Set the color based on where you are
+    color Ct;
+    
+    if( sb < MORTARTHICKNESS || tb < MORTARTHICKNESS )
+        Ct = Cmortar;
+    else
+        Ct = Cbrick;
+
+    // Return correct color
+    Result = Ct;
+}
