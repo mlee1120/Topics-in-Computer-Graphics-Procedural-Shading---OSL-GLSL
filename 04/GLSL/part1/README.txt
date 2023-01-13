@@ -1,0 +1,2 @@
+I noticed that texturecoordinates were not provided, but I did not want to change anything in Models.cpp.
+Therefore, I calculated st values in "bumpShader.frag" using the information from "QuadData.h" instead. 

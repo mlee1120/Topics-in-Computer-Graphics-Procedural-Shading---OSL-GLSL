@@ -1,0 +1,2 @@
+For tiles, I used the provided noise function to generate a bump map based on the vertex positions.
+For grout areas, I didn't use bump map. Instead, I used my own procedural method to create a groove in the grout areas in bumpShader.frag. (manipulate_normal.jpg describes my method)

@@ -1,0 +1,124 @@
+//
+// displacement shader (OSL) for lab 4 part 2 from CSCI 719
+// 
+// Contributor: Michael Lee (ml3406)
+//
+
+// define parameters for tiles
+#define MORTARTHICKNESS   0.015
+#define TILESIZE          (1.0 - 6 * MORTARTHICKNESS) / 5.0
+#define BLOCKSIZE         (TILESIZE + MORTARTHICKNESS)
+
+#include <stdosl.h>
+
+displacement DisplacementShader(    
+    // vertex normal
+    vector vNorm = vector(0.0, 0.0, 1.0),
+
+    // trexture coordinates
+    vector uv = vector(0.0, 0.0, 0.0),
+    
+    // shader output (manipulated normal)
+    output vector norm = vector(0.0, 0.0, 1.0)
+)
+{       
+    // calculate st coordinates
+    float s = uv[0];
+    float t = uv[1];
+
+    // see where we are in the block
+    float sb = mod(s, BLOCKSIZE);
+    float tb = mod(t, BLOCKSIZE);
+
+    // see which row and column the tile or the mortar is
+    float row = floor(t / BLOCKSIZE);
+    float column = floor(s / BLOCKSIZE);
+
+    // noise frequency
+    float frequency = 45;
+
+    // generate a bump map using noise based on position
+    // offsets in x and y directions
+    float dx = 0.01;
+    float dy = 0.01;
+
+    // use 4 adjacent positions to calculate gradients in tangent and bitangent directions
+    float top = noise("uperlin", s * frequency, (t + dy) * frequency);
+    float left = noise("uperlin", (s - dx) * frequency, t * frequency);
+    float right = noise("uperlin", (s + dx) * frequency, t * frequency);
+    float bottom = noise("uperlin", s * frequency, (t - dy) * frequency);   
+ 
+    // make height range from mini to maxi for adjusting average bump height
+    float maxi = 0.3;
+    float mini = 0.0;
+    top = top * (maxi - mini) + mini;
+    left = left * (maxi - mini) + mini;
+    right = right * (maxi - mini) + mini;
+    bottom = bottom * (maxi - mini) + mini;
+
+    // gradients in tangent(or x) and bitangent(or y) directions
+    float tan_gradient = (right - left);
+    float bitan_gradient = (top - bottom);
+
+    // new normal from the bump map
+    vector nor = normalize(cross(vector(1.0, 0.0, 0.0) * (1.0 - abs(tan_gradient)) + vector(0.0, 0.0, 1.0) * tan_gradient, vector(0.0, 1.0, 0.0) * (1.0 - abs(bitan_gradient)) + vector(0.0, 0.0, 1.0) * bitan_gradient));
+
+    // caluculate tangent vector and bitangent vector
+    vector tangent;
+    vector c1 = cross(vNorm, vector(0.0, 0.0, 1.0)); 
+    vector c2 = cross(vNorm, vector(0.0, 1.0, 0.0)); 
+    if(length(c1) > length(c2)) tangent = normalize(c1);
+    else tangent = normalize(c2);
+    vector bitangent = normalize(cross(vNorm, tangent));
+
+    // mortar
+    if( sb < MORTARTHICKNESS || tb < MORTARTHICKNESS ) {
+        // 1x2 (don't manipulate normal if tile)
+        if ((row == 2 && column == 1 && tb > MORTARTHICKNESS) || (row == 4 && column == 2 && tb > MORTARTHICKNESS) || (row == 0 && column == 4 && tb > MORTARTHICKNESS));
+        // 2x1 (don't manipulate normal if tile)
+        else if((row == 1 && column == 0 && sb > MORTARTHICKNESS) || (row == 4 && column == 0 && sb > MORTARTHICKNESS) || (row == 3 && column == 2 && sb > MORTARTHICKNESS) || (row == 2 && column == 4 && sb > MORTARTHICKNESS));
+        // 4x4 (don't manipulate normal if tile)
+        else if((row == 0 && column == 2 && tb > MORTARTHICKNESS) || (row == 1 && column == 1 && sb > MORTARTHICKNESS) || (row == 1 && column == 2) || (row == 3 && column == 4 && tb > MORTARTHICKNESS) || (row == 4 && column == 3 && sb > MORTARTHICKNESS) || (row == 4 && column == 4));
+        // mortar (manipoulate normal accordingly)
+        else {
+            // modify normal to create groove
+            // radius of the groove
+            float r = MORTARTHICKNESS / 2.0;
+
+            // distances to the groove center in s and t directions
+            float ds = 0.0;
+            float dt = 0.0;
+
+            // tangent vecotrs in s and t directions for modifying normal
+            vector tangentS = vector(0.0, 0.0, 0.0);
+            vector tangentT = vector(0.0, 0.0, 0.0);
+            
+            // intersection mortar
+            if(sb < MORTARTHICKNESS && tb < MORTARTHICKNESS){
+                ds = sb - r;
+                dt = tb - r;
+                tangentS = vector(-1.0, 0.0, 0.0);
+                tangentT = vector(0.0, -1.0, 0.0);
+            }
+            // mortar in columns
+            else if(sb < MORTARTHICKNESS) {
+                ds = sb - r;
+                tangentS = vector(-1.0, 0.0, 0.0);
+            } 
+            // mortar in rows
+            else {
+                dt = tb - r;
+                tangentT = vector(0.0, -1.0, 0.0);
+            }
+            // new normal at the groove
+            nor = normalize(vNorm * cos(asin(abs(ds) / r)) * cos(asin(abs(dt) / r)) + tangentS * ds / r + tangentT * dt / r);
+        }
+    }
+    // convert new normal to tangent space
+    float temp_x = tangent.x * nor.x + tangent.y * nor.y + tangent.z * nor.z;
+    float temp_y = bitangent.x * nor.x + bitangent.y * nor.y + bitangent.z * nor.z;
+    float temp_z = vNorm.x * norm.x + vNorm.y * norm.y + vNorm.z * norm.z;
+
+    // manipulate normal
+    norm =  normalize(vector(temp_x, temp_y, temp_z));
+}

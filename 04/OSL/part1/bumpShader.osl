@@ -1,0 +1,96 @@
+//
+// bump shader (OSL) for lab 4 part 1 from CSCI 719
+// 
+// Contributor: Michael Lee (ml3406)
+//
+
+// define parameters for tiles
+#define MORTARTHICKNESS   0.015
+#define TILESIZE          (1.0 - 6 * MORTARTHICKNESS) / 5.0
+#define BLOCKSIZE         (TILESIZE + MORTARTHICKNESS)
+
+#include <stdosl.h>
+
+surface BumpShader(    
+    // light color
+    color light_color = color(1.0, 1.0, 1.0),
+    color ambient_light = color(0.0, 0.0, 0.0),
+    
+    // specular exponent
+    float exp = 50.0,
+    
+    // reflection coefficients
+    float k[3] = {1.0, 1.0, 1.0},
+    
+    // light position
+    vector lPos = vector(4.0762, 1.0055, 5.9039),
+
+    // camera position
+    vector cPos = vector(0.0, 0.0, 7.0),
+    
+    // vertex position
+    vector vPos = vector(1.0, 1.0, 1.0),
+    
+    // vertex normal
+    vector vNorm = vector(0.0, 0.0, 1.0),
+
+    // trexture coordinates
+    vector uv = vector(0.0, 0.0, 0.0),
+    
+    // shader output
+    output color frag_color = color(1.0, 1.0, 1.0)
+)
+{       
+    // calculate st coordinates
+    float s = uv[0];
+    float t = uv[1];
+
+    // see where we are in the block
+    float sb = mod(s, BLOCKSIZE);
+    float tb = mod(t, BLOCKSIZE);
+
+    // calculate lighting vectors
+    vector L = normalize(lPos - vPos);
+    vector No = normalize(vNorm);
+    vector R = normalize(reflect(-L, No));
+    vector V = normalize(cPos - vPos);
+    
+    // an auxiliary variable for choosing which color to use (make it more readable)
+    color colorTemp = color(1.0, 0.0, 0.0);
+
+    // see which row and column the tile or the mortar is
+    float row = floor(t / BLOCKSIZE);
+    float column = floor(s / BLOCKSIZE);
+    
+    // mortar
+    if( sb < MORTARTHICKNESS || tb < MORTARTHICKNESS ) {
+        // 1x2
+        if ((row == 2 && column == 1 && tb > MORTARTHICKNESS) || (row == 4 && column == 2 && tb > MORTARTHICKNESS) || (row == 0 && column == 4 && tb > MORTARTHICKNESS)) colorTemp = color(0.18, 0.25, 0.9);
+        // 2x1
+        else if((row == 1 && column == 0 && sb > MORTARTHICKNESS) || (row == 4 && column == 0 && sb > MORTARTHICKNESS) || (row == 3 && column == 2 && sb > MORTARTHICKNESS) || (row == 2 && column == 4 && sb > MORTARTHICKNESS)) colorTemp = color(0.3, 0.9, 0.9);
+        // 4x4
+        else if((row == 0 && column == 2 && tb > MORTARTHICKNESS) || (row == 1 && column == 1 && sb > MORTARTHICKNESS) || (row == 1 && column == 2) || (row == 3 && column == 4 && tb > MORTARTHICKNESS) || (row == 4 && column == 3 && sb > MORTARTHICKNESS) || (row == 4 && column == 4)) colorTemp = color(0.45, 0.26, 0.21);
+        // mortar
+        else colorTemp = color(0.1, 0.1, 0.1);
+    } 
+    // tiles
+    else {   
+        // 1x1
+        if((row == 3 && column == 1) || (row == 1 && column == 3) || (row == 2 && column == 3)) colorTemp = color(0.25, 0.29, 0.5);
+        // 1x2
+        else if((row == 0 && column == 3) || (row == 0 && column == 4) || (row == 2 && column == 0) || (row == 2 && column == 1) || (row == 4 && column == 1) || (row == 4 && column == 2)) colorTemp = color(0.18, 0.25, 0.9);
+        // 2x1
+        else if((row == 0 && column == 0) || (row == 1 && column == 0) || (row == 1 && column == 4) || (row == 2 && column == 2) || (row == 2 && column == 4) || (row == 3 && column == 0) || (row == 3 && column == 2) || (row == 4 && column == 0)) colorTemp = color(0.3, 0.9, 0.9);
+        // 4x4
+        else colorTemp = color(0.45, 0.26, 0.21);
+    }
+    
+    // calculate components
+    color ambi = ambient_light * colorTemp;
+    color diff = light_color * colorTemp * max(dot(No, L), 0.0);
+    float spec_dot = pow(max(dot(R, V), 0.0), exp);
+    color spec = light_color * colorTemp * spec_dot;
+
+    // final color
+    frag_color = k[0] * ambi + k[1] * diff  + k[2] * spec;
+}
